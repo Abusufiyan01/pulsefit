@@ -33,3 +33,4 @@ export function getImageUrl(path, fallback = '') {
 }
 
 export default getImageUrl;
+

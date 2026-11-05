@@ -94,3 +94,4 @@ PulseFit was audited and tested comprehensively end-to-end across backend APIs, 
 ## 5. Remaining Known Issues
 
 **NONE.** All endpoints, UI pages, form validations, and background processes are operating without error.
+
