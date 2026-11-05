@@ -1,0 +1,59 @@
+# Dependency directories
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Production build outputs
+dist/
+client/dist/
+dist-ssr/
+build/
+
+# Environment files (never commit real secrets)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+server/.env
+client/.env
+
+# Local database storage & temporary data
+server/data/
+server/data/db/
+*.sock
+
+# User uploaded files (keep .gitkeep)
+server/uploads/*
+!server/uploads/.gitkeep
+server/uploads/progress-photos/*
+!server/uploads/progress-photos/.gitkeep
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Vite cache
+.vite/
+client/.vite/
+client/node_modules/.vite/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# IDE and Editor files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

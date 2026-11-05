@@ -1,0 +1,38 @@
+{
+  "name": "PulseFit",
+  "short_name": "PulseFit",
+  "description": "Track workouts, nutrition, and reach your fitness goals",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0B0B0F",
+  "theme_color": "#FF5A1F",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["health", "fitness"],
+  "shortcuts": [
+    {
+      "name": "Log Workout",
+      "url": "/app/workout/log",
+      "description": "Start a new workout"
+    },
+    {
+      "name": "Dashboard",
+      "url": "/app/dashboard",
+      "description": "View your dashboard"
+    }
+  ]
+}
+
