@@ -52,7 +52,7 @@ export const useAuthStore = create(
         set({ isLoading: true })
         try {
           const { data } = await api.get('/auth/me')
-          const user = data.data?.user || data.user
+          const user = data.data?.user || (data.data?.email ? data.data : data.user)
           set({ user, isAuthenticated: !!user, isLoading: false })
           return user
         } catch {

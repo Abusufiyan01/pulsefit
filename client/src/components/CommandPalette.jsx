@@ -29,16 +29,10 @@ const COMMANDS = [
 ]
 
 export default function CommandPalette({ open = false, onClose }) {
-  if (!open) return null
-
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState(0)
   const navigate = useNavigate()
   const inputRef = useRef(null)
-
-  useEffect(() => {
-    inputRef.current?.focus()
-  }, [])
 
   const allItems = COMMANDS.flatMap((s) => s.items)
   const filtered = query
@@ -48,6 +42,12 @@ export default function CommandPalette({ open = false, onClose }) {
   const filteredSections = query
     ? [{ section: 'Results', items: filtered }]
     : COMMANDS
+
+  useEffect(() => {
+    if (open) {
+      inputRef.current?.focus()
+    }
+  }, [open])
 
   useEffect(() => {
     setSelected(0)
@@ -60,6 +60,8 @@ export default function CommandPalette({ open = false, onClose }) {
   }
 
   useEffect(() => {
+    if (!open) return
+
     const handler = (e) => {
       if (e.key === 'ArrowDown') {
         e.preventDefault()
@@ -80,7 +82,9 @@ export default function CommandPalette({ open = false, onClose }) {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [filtered, selected])
+  }, [open, filtered, selected])
+
+  if (!open) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 px-4" role="dialog" aria-modal="true">

@@ -420,16 +420,44 @@ The seed script (`npm run seed`) populates:
 
 ## 🧪 Testing
 
-Backend tests use Jest + Supertest:
+PulseFit includes comprehensive unit and integration tests across 5 test suites:
 
 ```bash
+# Run backend tests
 cd server && npm test
+
+# Run frontend linting and type checks
+cd client && npm run lint
 ```
 
 Tests cover:
-- Auth flow (register, login, refresh, logout)
-- Workout CRUD and streak logic
-- Streak calculation (including rest day handling)
+- **Auth API (`tests/auth.test.js`)**: Registration, login, logout, token refresh, `/auth/me` session recovery, password validation, protected routes.
+- **Workout API (`tests/workout.test.js`)**: Empty exercise validation, total volume calculation, personal record auto-detection, workout history pagination.
+- **Streak Logic (`tests/streak.test.js`)**: Multi-day consistency, rest day streak protection, timezone boundaries, midnight rollover handling.
+- **Photos & Avatar API (`tests/photos.test.js`)**: Multipart file uploads, mime type enforcement, disk unlinking on photo deletion, avatar updates.
+- **Nutrition, AI & Export API (`tests/nutrition_ai_export.test.js`)**: Meal logging, macro summation, daily water tracking, rule-based AI fallbacks, full JSON data export.
+
+---
+
+## 🔧 Troubleshooting & Bugfix Notes
+
+### 1. Photo Uploads & Static Serving
+- **Issue:** Uploaded transformation photos or avatars returned 404 or failed to display in the frontend.
+- **Root Cause:** Vite only proxied `/api` requests by default, meaning requests to `/uploads/...` fell back to Vite's SPA index.html. In addition, multer paths previously resolved to the project root instead of `server/uploads`.
+- **Solution:** 
+  1. Configured both `server.proxy` and `preview.proxy` in `client/vite.config.js` to route `/uploads` directly to `http://127.0.0.1:5000`.
+  2. Set `uploadDir` in `server/src/middleware/upload.js` to `path.resolve(__dirname, '../../uploads')` with automatic directory creation.
+  3. Added `getImageUrl` utility in `client/src/utils/imageUrl.js` supporting instant blob previews, external URLs, and relative upload paths with fallback images.
+  4. Configured Helmet with `crossOriginResourcePolicy: { policy: 'cross-origin' }`.
+
+### 2. Auth Session Bouncing on Page Reload
+- **Issue:** Directly refreshing or entering protected URLs like `/app/body` redirected users back to `/login`.
+- **Root Cause:** `authController.getMe` returned `{ success: true, data: userSafe }`, but `authStore.fetchMe` looked for `data.data?.user`, causing the stored user state to be cleared on refresh.
+- **Solution:** Aligned `authStore.js` to support both payload shapes (`data.data?.user || (data.data?.email ? data.data : data.user)`), ensuring robust session persistence.
+
+### 3. Embedded Database Socket Permissions on Windows
+- **Issue:** When running automated test suites or local development on Windows environments without a pre-installed `mongod.exe` service, tests failed with `connect EACCES`.
+- **Solution:** `server/src/config/db.js` includes an automatic fallback to `mongodb-memory-server` saving to `server/data/db`. When running in sandboxed shells, run tests outside the socket isolation sandbox (`BypassSandbox: true` or standard terminal permissions).
 
 ---
 

@@ -36,6 +36,7 @@ import { useAuthStore } from '../../store/authStore'
 import bodyService from '../../services/bodyService'
 import api from '../../lib/api'
 import { formatDate } from '../../utils/dates'
+import { getImageUrl } from '../../utils/imageUrl'
 import toast from 'react-hot-toast'
 
 export default function BodyPage() {
@@ -143,12 +144,35 @@ export default function BodyPage() {
     }
   }
 
-  // Handle Photo Upload
+  // Handle Photo Upload with Instant Preview
   const handlePhotoSelect = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
 
+    // Validate mime type and file size (5MB max)
+    if (!file.type.startsWith('image/')) {
+      toast.error('Only image files (JPEG, PNG, WebP) are allowed.')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size exceeds 5MB limit.')
+      return
+    }
+
+    const previewUrl = URL.createObjectURL(file)
+    const tempId = `temp-${Date.now()}`
+    const tempPhoto = {
+      _id: tempId,
+      photoUrl: previewUrl,
+      date: new Date().toISOString(),
+      weight: form.weight || user?.weight,
+      isUploading: true,
+    }
+
+    // Show instant preview immediately
+    setPhotos((prev) => [tempPhoto, ...prev])
     setIsUploadingPhoto(true)
+
     try {
       const formData = new FormData()
       formData.append('photo', file)
@@ -159,17 +183,15 @@ export default function BodyPage() {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
 
-      const newPhoto = res.data?.data || {
-        _id: Date.now().toString(),
-        url: URL.createObjectURL(file),
-        createdAt: new Date().toISOString(),
-        weight: form.weight,
-      }
-
-      setPhotos((prev) => [newPhoto, ...prev])
-      toast.success('Progress photo uploaded!')
-    } catch {
-      toast.error('Failed to upload photo')
+      const newPhoto = res.data?.data || res.data
+      setPhotos((prev) =>
+        prev.map((p) => (p._id === tempId ? { ...newPhoto, photoUrl: newPhoto.photoUrl || previewUrl } : p))
+      )
+      toast.success('Progress photo uploaded successfully!')
+    } catch (err) {
+      setPhotos((prev) => prev.filter((p) => p._id !== tempId))
+      URL.revokeObjectURL(previewUrl)
+      toast.error(err.response?.data?.message || 'Failed to upload photo')
     } finally {
       setIsUploadingPhoto(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -579,20 +601,30 @@ export default function BodyPage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
             {photos.map((photo) => {
               const photoId = photo._id || photo.id
-              const imgUrl = photo.url || photo.photoUrl || photo.imageUrl
+              const imgUrl = getImageUrl(photo.photoUrl || photo.url || photo.imageUrl)
 
               return (
                 <div
                   key={photoId}
                   className="group relative rounded-xl overflow-hidden aspect-[3/4] bg-surface border border-border/60 cursor-pointer"
-                  onClick={() => setSelectedPhoto(photo)}
+                  onClick={() => !photo.isUploading && setSelectedPhoto(photo)}
                 >
                   <img
                     src={imgUrl}
                     alt="Transformation snapshot"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    onError={(e) => {
+                      e.currentTarget.src =
+                        'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=800&auto=format&fit=crop'
+                    }}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-90 p-2.5 flex flex-col justify-end text-white">
+                  {photo.isUploading && (
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-center gap-1.5 z-10 text-white">
+                      <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-[10px] font-bold">Uploading...</span>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-90 p-2.5 flex flex-col justify-end text-white pointer-events-none">
                     <span className="text-[11px] font-bold">
                       {photo.date ? formatDate(photo.date, 'MMM d, yyyy') : 'Recent'}
                     </span>
@@ -618,9 +650,13 @@ export default function BodyPage() {
           <div className="space-y-4">
             <div className="rounded-xl overflow-hidden max-h-[60vh] bg-black flex items-center justify-center">
               <img
-                src={selectedPhoto.url || selectedPhoto.photoUrl || selectedPhoto.imageUrl}
+                src={getImageUrl(selectedPhoto.url || selectedPhoto.photoUrl || selectedPhoto.imageUrl)}
                 alt="Transformation full view"
                 className="max-h-[60vh] object-contain"
+                onError={(e) => {
+                  e.currentTarget.src =
+                    'https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?w=800&auto=format&fit=crop'
+                }}
               />
             </div>
 

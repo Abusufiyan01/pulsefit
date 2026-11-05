@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
 import { useThemeStore } from '../store/themeStore'
+import { getImageUrl } from '../utils/imageUrl'
 
 const navLinks = [
   { name: 'Dashboard', path: '/app/dashboard', icon: LayoutDashboard },
@@ -117,8 +118,21 @@ export function AppLayout() {
               onClick={() => navigate('/app/profile')}
               className="flex items-center gap-2.5 cursor-pointer overflow-hidden"
             >
-              <div className="w-8 h-8 rounded-full bg-primary-500/20 text-primary-500 flex items-center justify-center font-bold text-xs shrink-0">
-                {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+              <div className="w-8 h-8 rounded-full bg-primary-500/20 text-primary-500 overflow-hidden flex items-center justify-center font-bold text-xs shrink-0">
+                {user?.avatar ? (
+                  <img
+                    src={getImageUrl(user.avatar)}
+                    alt={user?.name || 'User'}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none'
+                    }}
+                  />
+                ) : user?.name ? (
+                  user.name.charAt(0).toUpperCase()
+                ) : (
+                  'U'
+                )}
               </div>
               <div className="truncate">
                 <p className="text-xs font-bold text-current truncate">{user?.name || 'PulseFit User'}</p>
@@ -195,10 +209,23 @@ export function AppLayout() {
             {/* Profile Avatar */}
             <div
               onClick={() => navigate('/app/profile')}
-              className="w-9 h-9 rounded-full bg-primary-500/15 border border-primary-500/30 text-primary-500 flex items-center justify-center font-bold text-sm cursor-pointer hover:ring-2 hover:ring-primary-500/50 transition-all shrink-0"
+              className="w-9 h-9 rounded-full bg-primary-500/15 border border-primary-500/30 text-primary-500 overflow-hidden flex items-center justify-center font-bold text-sm cursor-pointer hover:ring-2 hover:ring-primary-500/50 transition-all shrink-0"
               title="Profile"
             >
-              {user?.name ? user.name.charAt(0).toUpperCase() : <UserIcon className="w-4 h-4" />}
+              {user?.avatar ? (
+                <img
+                  src={getImageUrl(user.avatar)}
+                  alt={user?.name || 'User'}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none'
+                  }}
+                />
+              ) : user?.name ? (
+                user.name.charAt(0).toUpperCase()
+              ) : (
+                <UserIcon className="w-4 h-4" />
+              )}
             </div>
           </div>
         </header>

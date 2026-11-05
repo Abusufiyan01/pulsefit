@@ -1,19 +1,30 @@
 /**
  * Multer File Upload Middleware
+ * Supports progress photos and user avatars with automatic directory creation,
+ * strict mimetype checks, and 5MB size limits.
  */
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Ensure destination directories exist
-const uploadDir = path.join(__dirname, '../../uploads/progress-photos');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+// Ensure destination directories exist inside server/uploads
+const uploadBaseDir = path.resolve(__dirname, '../../uploads');
+const progressPhotosDir = path.join(uploadBaseDir, 'progress-photos');
+const avatarsDir = path.join(uploadBaseDir, 'avatars');
+
+[uploadBaseDir, progressPhotosDir, avatarsDir].forEach((dir) => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+});
 
 const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, uploadDir);
+  destination: (_req, file, cb) => {
+    if (file.fieldname === 'avatar') {
+      cb(null, avatarsDir);
+    } else {
+      cb(null, progressPhotosDir);
+    }
   },
   filename: (_req, file, cb) => {
     const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;

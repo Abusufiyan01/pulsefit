@@ -1,6 +1,7 @@
 /**
  * User Controller
  */
+const fs = require('fs');
 const User = require('../models/User');
 const Workout = require('../models/Workout');
 const Routine = require('../models/Routine');
@@ -105,7 +106,7 @@ const updateAvatar = async (req, res, next) => {
     let avatarUrl = req.body.avatar;
 
     if (req.file) {
-      avatarUrl = `/uploads/progress-photos/${req.file.filename}`;
+      avatarUrl = `/uploads/avatars/${req.file.filename}`;
     }
 
     if (!avatarUrl) {
@@ -113,6 +114,20 @@ const updateAvatar = async (req, res, next) => {
     }
 
     const user = await User.findById(req.user._id);
+
+    // Clean up old uploaded avatar if replaced
+    if (user.avatar && user.avatar.startsWith('/uploads/avatars/')) {
+      const oldAvatarRel = user.avatar.replace(/^\/uploads\//, '');
+      const oldAvatarPath = path.resolve(__dirname, '../../uploads', oldAvatarRel);
+      if (fs.existsSync(oldAvatarPath)) {
+        try {
+          fs.unlinkSync(oldAvatarPath);
+        } catch (_err) {
+          // Ignore unlink errors on non-existent files
+        }
+      }
+    }
+
     user.avatar = avatarUrl;
     await user.save();
 

@@ -20,6 +20,7 @@ import Badge from '../../components/ui/Badge'
 import { useAuthStore } from '../../store/authStore'
 import api from '../../lib/api'
 import { formatDate } from '../../utils/dates'
+import { getImageUrl } from '../../utils/imageUrl'
 import toast from 'react-hot-toast'
 
 export default function ProfilePage() {
@@ -40,14 +41,27 @@ export default function ProfilePage() {
 
   const [isSaving, setIsSaving] = useState(false)
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
+  const [avatarPreview, setAvatarPreview] = useState(null)
   const avatarInputRef = useRef(null)
 
-  // Handle Avatar Upload
+  // Handle Avatar Upload with Instant Preview & Validation
   const handleAvatarChange = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
 
+    if (!file.type.startsWith('image/')) {
+      toast.error('Only image files (JPEG, PNG, WebP) are allowed.')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Avatar size must be less than 5MB.')
+      return
+    }
+
+    const previewUrl = URL.createObjectURL(file)
+    setAvatarPreview(previewUrl)
     setIsUploadingAvatar(true)
+
     try {
       const formData = new FormData()
       formData.append('avatar', file)
@@ -56,11 +70,13 @@ export default function ProfilePage() {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
 
-      const avatarUrl = res.data?.data?.avatar || URL.createObjectURL(file)
-      updateUser({ avatar: avatarUrl })
+      const avatarUrl = res.data?.data?.avatar || res.data?.avatar
+      updateUser({ avatar: avatarUrl || previewUrl })
       toast.success('Avatar updated successfully!')
-    } catch {
-      toast.error('Failed to upload avatar image')
+      setAvatarPreview(null)
+    } catch (err) {
+      setAvatarPreview(null)
+      toast.error(err.response?.data?.message || 'Failed to upload avatar image')
     } finally {
       setIsUploadingAvatar(false)
       if (avatarInputRef.current) avatarInputRef.current.value = ''
@@ -114,16 +130,26 @@ export default function ProfilePage() {
         <div className="flex flex-col sm:flex-row items-center gap-6 p-2 sm:p-4">
           {/* Avatar with Camera Overlay */}
           <div className="relative group">
-            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden border-4 border-bg-card shadow-float bg-surface flex items-center justify-center">
-              {user?.avatar ? (
+            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden border-4 border-bg-card shadow-float bg-surface flex items-center justify-center relative">
+              {avatarPreview || user?.avatar ? (
                 <img
-                  src={user.avatar}
+                  src={getImageUrl(avatarPreview || user?.avatar)}
                   alt={user?.name || 'User Avatar'}
                   className="w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none'
+                  }}
                 />
               ) : (
                 <div className="w-full h-full bg-gradient-primary flex items-center justify-center text-white text-3xl font-black">
                   {user?.name?.[0]?.toUpperCase() || 'P'}
+                </div>
+              )}
+
+              {isUploadingAvatar && (
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-center gap-1 text-white">
+                  <div className="w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-[9px] font-bold">Uploading</span>
                 </div>
               )}
             </div>
@@ -140,7 +166,7 @@ export default function ProfilePage() {
               type="button"
               disabled={isUploadingAvatar}
               onClick={() => avatarInputRef.current?.click()}
-              className="absolute bottom-1 right-1 p-2 rounded-full bg-primary-500 text-white shadow-glow hover:scale-110 active:scale-95 transition-all cursor-pointer"
+              className="absolute bottom-1 right-1 p-2 rounded-full bg-primary-500 text-white shadow-glow hover:scale-110 active:scale-95 transition-all cursor-pointer disabled:opacity-50"
               title="Change Profile Photo"
             >
               <Camera className="w-4 h-4" />

@@ -73,9 +73,14 @@ const deleteProgressPhoto = async (req, res, next) => {
 
     // Attempt to remove local file if it is in uploads
     if (photo.photoUrl && photo.photoUrl.startsWith('/uploads/')) {
-      const localPath = path.join(__dirname, '../..', photo.photoUrl);
+      const relPath = photo.photoUrl.replace(/^\/uploads\//, '');
+      const localPath = path.resolve(__dirname, '../../uploads', relPath);
       if (fs.existsSync(localPath)) {
-        fs.unlink(localPath, () => {});
+        try {
+          fs.unlinkSync(localPath);
+        } catch (_err) {
+          // Ignore file deletion error
+        }
       }
     }
 
