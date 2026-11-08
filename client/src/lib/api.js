@@ -35,7 +35,13 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Never attempt refresh on auth endpoints (login, refresh, register) or if already retried
+    const isAuthEndpoint =
+      originalRequest?.url?.includes('/auth/login') ||
+      originalRequest?.url?.includes('/auth/refresh') ||
+      originalRequest?.url?.includes('/auth/register')
+
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isAuthEndpoint) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })
@@ -48,15 +54,11 @@ api.interceptors.response.use(
       isRefreshing = true
 
       try {
-        await api.post('/auth/refresh')
+        await api.post('/auth/refresh', {}, { _retry: true })
         processQueue(null)
         return api(originalRequest)
       } catch (refreshError) {
         processQueue(refreshError)
-        localStorage.removeItem('pulsefit-auth')
-        if (window.location.pathname !== '/login' && window.location.pathname !== '/') {
-          window.location.href = '/login'
-        }
         return Promise.reject(refreshError)
       } finally {
         isRefreshing = false
@@ -68,4 +70,3 @@ api.interceptors.response.use(
 )
 
 export default api
-

@@ -64,7 +64,22 @@ export default function App() {
 
   useEffect(() => {
     initTheme()
-    fetchMe().finally(() => setAuthReady(true))
+    let active = true
+    const timeout = setTimeout(() => {
+      if (active) setAuthReady(true)
+    }, 1500)
+
+    fetchMe().finally(() => {
+      if (active) {
+        clearTimeout(timeout)
+        setAuthReady(true)
+      }
+    })
+
+    return () => {
+      active = false
+      clearTimeout(timeout)
+    }
   }, [])
 
   // Global keyboard shortcut for command palette
