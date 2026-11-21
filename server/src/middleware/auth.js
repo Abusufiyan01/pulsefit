@@ -25,7 +25,12 @@ const auth = async (req, res, next) => {
       return errorResponse(res, 'Access denied. No authentication token provided.', 401);
     }
 
-    const accessSecret = process.env.JWT_ACCESS_SECRET || 'pulsefit_access_secret_fallback';
+    const accessSecret =
+      process.env.JWT_ACCESS_SECRET ||
+      (process.env.NODE_ENV === 'test' ? 'test-only-secret' : undefined);
+    if (!accessSecret) {
+      throw new Error('JWT_ACCESS_SECRET is not set');
+    }
     const decoded = jwt.verify(token, accessSecret);
 
     // Find user in database
