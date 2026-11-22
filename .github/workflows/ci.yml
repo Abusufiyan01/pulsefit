@@ -64,4 +64,5 @@ jobs:
           format: table
           severity: CRITICAL,HIGH
           ignore-unfixed: true
-          exit-code: '0'
+          exit-code: '1'
+          trivyignores: .trivyignore
