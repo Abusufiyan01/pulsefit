@@ -1,45 +1,21 @@
-name: CI
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-permissions:
-  contents: read
-
-jobs:
-  server-tests:
+  docker-build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: server
+    needs: [server-tests, client-build]
+    strategy:
+      matrix:
+        service: [server, client]
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - name: Build ${{ matrix.service }} image
+        run: docker build -t pulsefit-${{ matrix.service }}:${{ github.sha }} ./${{ matrix.service }}
+      - name: Show image size
+        run: docker images pulsefit-${{ matrix.service }}
+      # Pinned to a full commit SHA on purpose: tags can be moved by an attacker, SHAs cannot.
+      - name: Scan ${{ matrix.service }} image with Trivy
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: server/package-lock.json
-      - run: npm ci
-      - run: npm test
-        env:
-          JWT_ACCESS_SECRET: ci-test-access-secret
-          JWT_REFRESH_SECRET: ci-test-refresh-secret
-
-  client-build:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: client
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: client/package-lock.json
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run build
+          image-ref: pulsefit-${{ matrix.service }}:${{ github.sha }}
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '0'
