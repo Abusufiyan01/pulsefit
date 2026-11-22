@@ -12,14 +12,30 @@ const ACCESS_COOKIE_MAX_AGE = 15 * 60 * 1000;
 // 7 days in ms = 7 * 24 * 60 * 60 * 1000 = 604,800,000
 const REFRESH_COOKIE_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 
+const getAccessSecret = () => {
+  const secret =
+    process.env.JWT_ACCESS_SECRET ||
+    (process.env.NODE_ENV === 'test' ? 'test-only-secret' : undefined);
+  if (!secret) throw new Error('JWT_ACCESS_SECRET is not set');
+  return secret;
+};
+
+const getRefreshSecret = () => {
+  const secret =
+    process.env.JWT_REFRESH_SECRET ||
+    (process.env.NODE_ENV === 'test' ? 'test-only-secret' : undefined);
+  if (!secret) throw new Error('JWT_REFRESH_SECRET is not set');
+  return secret;
+};
+
 /**
  * Generate Access and Refresh JWTs
  * @param {string|mongoose.Types.ObjectId} userId 
  * @returns {{ accessToken: string, refreshToken: string }}
  */
 const generateTokens = (userId) => {
-  const accessSecret = process.env.JWT_ACCESS_SECRET || 'pulsefit_access_secret_fallback';
-  const refreshSecret = process.env.JWT_REFRESH_SECRET || 'pulsefit_refresh_secret_fallback';
+  const accessSecret = getAccessSecret();
+  const refreshSecret = getRefreshSecret();
 
   const accessToken = jwt.sign({ id: userId.toString() }, accessSecret, {
     expiresIn: ACCESS_TOKEN_EXPIRY,
@@ -40,11 +56,14 @@ const generateTokens = (userId) => {
  */
 const setTokenCookies = (res, accessToken, refreshToken) => {
   const isProd = process.env.NODE_ENV === 'production';
+  const isSecure =
+    process.env.COOKIE_SECURE === 'true' ||
+    (isProd && process.env.CLIENT_URL?.startsWith('https'));
 
   const baseCookieOptions = {
     httpOnly: true,
-    secure: isProd,
-    sameSite: isProd ? 'none' : 'lax',
+    secure: isSecure,
+    sameSite: isSecure ? 'none' : 'lax',
   };
 
   if (accessToken) {
@@ -68,10 +87,14 @@ const setTokenCookies = (res, accessToken, refreshToken) => {
  */
 const clearTokenCookies = (res) => {
   const isProd = process.env.NODE_ENV === 'production';
+  const isSecure =
+    process.env.COOKIE_SECURE === 'true' ||
+    (isProd && process.env.CLIENT_URL?.startsWith('https'));
+
   const options = {
     httpOnly: true,
-    secure: isProd,
-    sameSite: isProd ? 'none' : 'lax',
+    secure: isSecure,
+    sameSite: isSecure ? 'none' : 'lax',
   };
 
   res.clearCookie('accessToken', options);
@@ -84,7 +107,7 @@ const clearTokenCookies = (res) => {
  * @returns {object} Decoded token payload
  */
 const verifyRefreshToken = (token) => {
-  const refreshSecret = process.env.JWT_REFRESH_SECRET || 'pulsefit_refresh_secret_fallback';
+  const refreshSecret = getRefreshSecret();
   return jwt.verify(token, refreshSecret);
 };
 
