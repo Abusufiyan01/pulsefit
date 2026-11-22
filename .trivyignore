@@ -1,0 +1,11 @@
+# TEMPORARY exceptions for nginx 1.30.6 (fixed in 1.30.7, not yet in the nginx-unprivileged image).
+# Not reachable: client/nginx.conf is plain HTTP on port 8080 with no TLS, HTTP/2, HTTP/3,
+# mail proxy or resolver directive.
+# REVIEW by 2026-12-06. Remove all of these once the base image ships nginx >= 1.30.7,
+# and remove them immediately if HTTPS or HTTP/2 is ever enabled in nginx.
+CVE-2026-113425
+CVE-2026-121810
+CVE-2026-123007
+CVE-2026-123633
+CVE-2026-118899
+CVE-2026-123634
