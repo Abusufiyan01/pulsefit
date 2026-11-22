@@ -66,3 +66,16 @@ jobs:
           ignore-unfixed: true
           exit-code: '1'
           trivyignores: .trivyignore
+      - name: Log in to Docker Hub
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: echo "$DOCKERHUB_TOKEN" | docker login -u abusufiyan70 --password-stdin
+      - name: Tag and push ${{ matrix.service }} image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          IMAGE="abusufiyan70/pulsefit-${{ matrix.service }}"
+          docker tag pulsefit-${{ matrix.service }}:${{ github.sha }} "$IMAGE:${{ github.sha }}"
+          docker tag pulsefit-${{ matrix.service }}:${{ github.sha }} "$IMAGE:latest"
+          docker push "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:latest"
