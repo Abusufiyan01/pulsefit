@@ -1,3 +1,4 @@
+
 #!/bin/bash
 set -euo pipefail
 
@@ -52,23 +53,47 @@ services:
   client:
     image: abusufiyan70/pulsefit-client:${IMAGE_TAG:-latest}
     restart: unless-stopped
-    ports:
-      - "80:8080"
     depends_on:
       server:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set it in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      client:
         condition: service_healthy
 
 volumes:
   mongo_data:
   uploads_data:
+  caddy_data:
+  caddy_config:
+EOF
+
+cat > Caddyfile <<'EOF'
+{$DOMAIN} {
+	reverse_proxy client:8080
+}
 EOF
 
 PUBLIC_IP=$(curl -s https://checkip.amazonaws.com | tr -d '\n')
+DOMAIN="${PUBLIC_IP//./-}.sslip.io"
 
 cat > .env <<EOF
 JWT_ACCESS_SECRET=$(openssl rand -hex 32)
 JWT_REFRESH_SECRET=$(openssl rand -hex 32)
-CLIENT_URL=http://${PUBLIC_IP}
+DOMAIN=${DOMAIN}
+CLIENT_URL=https://${DOMAIN}
 GEMINI_API_KEY=
 EOF
 chmod 600 .env

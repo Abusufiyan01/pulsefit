@@ -3,7 +3,7 @@ output "public_ip" {
 }
 
 output "site_url" {
-  value = "http://${aws_instance.app.public_ip}"
+  value = "https://${replace(aws_instance.app.public_ip, ".", "-")}.sslip.io"
 }
 
 output "ssh_command" {
