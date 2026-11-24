@@ -57,7 +57,7 @@ resource "aws_security_group" "web" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  
+
   egress {
     description = "Allow all outbound traffic"
     from_port   = 0
@@ -73,7 +73,7 @@ resource "aws_instance" "app" {
   instance_type               = var.instance_type
   key_name                    = var.key_name
   vpc_security_group_ids      = [aws_security_group.web.id]
-  user_data                   = replace(file("${path.module}/user_data.sh"), "\r\n", "\n")
+  user_data                   = replace(trimspace(file("${path.module}/user_data.sh")), "\r\n", "\n")
   user_data_replace_on_change = true
 
   metadata_options {
