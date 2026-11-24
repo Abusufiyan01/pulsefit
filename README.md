@@ -1,498 +1,231 @@
-# 🔥 PulseFit — AI-Powered Fitness & Workout Tracker
+# PulseFit — Containerised Full-Stack App with a Secure CI/CD Pipeline on AWS
 
-<div align="center">
+[![CI](https://github.com/Abusufiyan01/pulsefit/actions/workflows/ci.yml/badge.svg)](https://github.com/Abusufiyan01/pulsefit/actions/workflows/ci.yml)
+[![Docker Hub - server](https://img.shields.io/badge/Docker%20Hub-pulsefit--server-2496ED?logo=docker&logoColor=white)](https://hub.docker.com/r/abusufiyan70/pulsefit-server)
+[![Docker Hub - client](https://img.shields.io/badge/Docker%20Hub-pulsefit--client-2496ED?logo=docker&logoColor=white)](https://hub.docker.com/r/abusufiyan70/pulsefit-client)
 
-![PulseFit Banner](https://via.placeholder.com/1200x300/FF5A1F/FFFFFF?text=PulseFit+%E2%80%94+Train+Smarter.+Live+Better.)
+PulseFit is a fitness and workout tracker (React, Node.js/Express, MongoDB) that I built as a final-year project.
+This repository also shows how I take an application **from `git push` to a running, HTTPS-secured server on AWS**:
+containerised with Docker, tested and security-scanned in GitHub Actions, published to Docker Hub, and deployed
+on an EC2 server that is created entirely from Terraform code.
 
-**A production-quality, full-stack fitness tracking web application built with React, Node.js, and MongoDB — powered by Google Gemini AI.**
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-orange.svg)](LICENSE)
-[![Node.js](https://img.shields.io/badge/Node.js-24.x-green.svg)](https://nodejs.org/)
-[![React](https://img.shields.io/badge/React-18.x-blue.svg)](https://reactjs.org/)
-[![MongoDB](https://img.shields.io/badge/MongoDB-7.x-green.svg)](https://mongodb.com/)
-
-[Live Demo](#) · [Report Bug](#) · [Request Feature](#)
-
-</div>
+> **Live demo:** the demo runs on a small EC2 instance that I switch off between demos to save cost, so the link may be down.
+> See the [screenshots](#screenshots). The address is `https://<server-ip-with-dashes>.sslip.io` and changes whenever the server is rebuilt.
+> Demo login: `demo@pulsefit.com` / `Demo1234!` (seeded data only).
 
 ---
 
-## 📋 Table of Contents
+## What this project demonstrates
 
-- [Features](#-features)
-- [Tech Stack](#-tech-stack)
-- [Getting Started](#-getting-started)
-- [Environment Variables](#-environment-variables)
-- [Project Structure](#-project-structure)
-- [API Endpoints](#-api-endpoints)
-- [Seed Data](#-seed-data)
-- [Scripts](#-scripts)
-- [Testing](#-testing)
-- [PWA Support](#-pwa-support)
-- [Contributing](#-contributing)
+| Area | What I built |
+|------|--------------|
+| **Containers** | Multi-stage Dockerfiles, non-root containers, health checks, Docker Compose for the 3-tier stack |
+| **CI** | GitHub Actions: Jest tests, client lint + build, Docker image builds on every push and pull request |
+| **DevSecOps** | Trivy image scan that fails the pipeline on fixable HIGH/CRITICAL findings, third-party action pinned to a commit SHA, documented and time-limited exceptions |
+| **Registry** | Scanned images published to Docker Hub, tagged with the commit ID (and `latest`) so any version can be rolled back |
+| **Infrastructure as Code** | Terraform creates the EC2 server, firewall and first-boot setup; the whole environment rebuilds with no manual steps |
+| **HTTPS** | Caddy reverse proxy with automatic Let's Encrypt certificates |
+| **Process** | Branch ruleset (pull request and passing checks required to merge), least-privilege AWS user, no secrets in the repo |
 
 ---
 
-## ✨ Features
+## Architecture
 
-### 🏋️ Workout Tracking
-- **120+ Exercise Library** with muscle groups, equipment, difficulty, instructions
-- **Live Workout Logger** — sets, reps, weight, RPE, rest timer with audio alerts
-- **Workout Templates** — 6 prebuilt programs + custom routines
-- **Personal Records** — auto-detected with celebration animation
-- **Workout History** — paginated, filterable, with detailed views
-- **Cardio Logging** — running, cycling, swimming, walking
+### Runtime
 
-### 🥗 Nutrition Tracking
-- **Food Diary** — breakfast, lunch, dinner, snacks with 200+ seeded foods
-- **Indian Food Database** — roti, dal, paneer, biryani, dosa, idli, and more
-- **Macro Tracking** — calories, protein, carbs, fat with visual rings
-- **Water Intake** — quick-add glasses with daily target
-- **Custom Foods** — add your own foods with custom serving sizes
+```mermaid
+flowchart LR
+  user["Browser"] -->|"HTTPS 443"| caddy
+  subgraph EC2["AWS EC2 t3.micro - Docker Compose"]
+    caddy["Caddy - TLS certificates"] --> nginx["Nginx - React build and /api proxy"]
+    nginx --> api["Node.js / Express API"]
+    api --> mongo[("MongoDB")]
+  end
+```
 
-### 📊 Body & Progress
-- **Weight & Body Fat Tracking** with line charts
-- **Body Measurements** — chest, waist, hips, arms, thighs
-- **Progress Photos** — upload, gallery view, before/after comparison
-- **Goal Weight Indicator** on charts
+Only Caddy is exposed to the internet (ports 80 and 443). The API and MongoDB have no published ports.
 
-### 🎯 Goals & Motivation
-- **Custom Goals** — weight, workout frequency, lift targets, steps, water
-- **Achievement Badges** — 12+ badges with unlock animations
-- **Streak Tracking** — correct streak logic respecting rest days
-- **Progress Analytics** — heatmaps, volume charts, strength progression
+### CI/CD pipeline
 
-### 🤖 AI Features (Gemini Flash)
-- **AI Workout Plan Generator** — personalized weekly plan from your profile
-- **AI Meal Suggestions** — fits your remaining macros with Indian-friendly options
-- **AI Progress Insights** — 3-5 actionable insights from your last 4 weeks
-- **Smart Fallback** — rule-based generation when API is unavailable
-
-### 🎨 World-Class UI/UX
-- **Dark/Light Mode** — system preference detection, smooth transitions
-- **Fully Responsive** — mobile bottom nav, desktop sidebar, tested at 360/768/1440px
-- **Command Palette** — Ctrl+K for instant navigation
-- **PWA Support** — installable, offline mode
-- **Animations** — Framer Motion page transitions, micro-interactions, celebration effects
-- **Accessibility** — WCAG AA contrast, keyboard navigation, focus rings
+```mermaid
+flowchart LR
+  dev["Developer"] -->|"push / pull request"| gh["GitHub"]
+  gh --> ci["GitHub Actions"]
+  ci --> tests["server-tests - Jest"]
+  ci --> client["client-build - lint and build"]
+  tests --> docker["docker-build - server and client"]
+  client --> docker
+  docker --> trivy["Trivy scan - fail on fixable HIGH/CRITICAL"]
+  trivy -->|"push to main only"| hub["Docker Hub - sha and latest tags"]
+  hub --> ec2["EC2 server - ./deploy.sh pulls the images"]
+```
 
 ---
 
-## 🛠 Tech Stack
+## Results
 
-### Frontend
-| Technology | Purpose |
-|-----------|---------|
-| React 18 | UI framework |
-| Vite | Build tool & dev server |
-| React Router v6 | Client-side routing |
-| Tailwind CSS | Styling |
-| Framer Motion | Animations |
-| Recharts | Charts & data visualization |
-| Lucide React | Icons |
-| React Hook Form + Zod | Form handling & validation |
-| Axios | HTTP client |
-| Zustand | State management |
-| React Hot Toast | Notifications |
-| date-fns | Date utilities |
-
-### Backend
-| Technology | Purpose |
-|-----------|---------|
-| Node.js 24 | Runtime |
-| Express 4 | Web framework |
-| MongoDB + Mongoose | Database & ODM |
-| JSON Web Tokens | Authentication |
-| bcryptjs | Password hashing |
-| Helmet | Security headers |
-| express-rate-limit | Rate limiting |
-| Morgan | HTTP logging |
-| Multer | File uploads |
-| @google/generative-ai | Gemini AI integration |
-| Jest + Supertest | Testing |
+| Measure | Result |
+|---------|--------|
+| API image size | **2.06 GB → 275 MB** (single-stage Debian image → multi-stage Alpine, production dependencies only) |
+| Client image size | **75.5 MB** (Nginx serves the static build, no Node runtime) |
+| Server image vulnerabilities | 25 HIGH → **0 fixable HIGH/CRITICAL** (pipeline gate passes) |
+| Client image vulnerabilities | 68 (65 HIGH, 3 CRITICAL) → **6**, all in Nginx 1.30.6, documented in `.trivyignore` |
+| Tests | 5 Jest suites, 29 tests, run on every push and pull request |
+| Environment provisioning | About **3 minutes** from `terraform apply` to a running, seeded site |
 
 ---
 
-## 🚀 Getting Started
+## CI/CD pipeline
 
-### Prerequisites
-- **Node.js 18+** — [Download](https://nodejs.org/)
-- **MongoDB** — [Local Installation](https://docs.mongodb.com/manual/installation/) or [MongoDB Atlas](https://www.mongodb.com/atlas/database) (free tier)
-- **Git** — [Download](https://git-scm.com/)
+Defined in [`.github/workflows/ci.yml`](.github/workflows/ci.yml). It runs on every pull request and on every push to `main`.
 
-### 1. Clone the repository
+| Job | What it does |
+|-----|--------------|
+| `server-tests` | Installs dependencies and runs the Jest suites (auth, workouts, streaks, photos, nutrition/AI) with throwaway test secrets |
+| `client-build` | Runs the linter and builds the React app |
+| `docker-build` (server, client) | Builds each image tagged with the commit SHA, prints its size, then **scans it with Trivy** |
+| Publish steps | Only on a push to `main`, and only after the scan passes: log in to Docker Hub and push `:<commit-sha>` and `:latest` |
+
+**Security gate.** Trivy fails the job on any fixable HIGH or CRITICAL vulnerability. The few findings that cannot be reached in this
+setup are listed in [`.trivyignore`](.trivyignore), each with a written reason and a review date.
+
+**Pinned third-party action.** The Trivy action is pinned to a full commit SHA, not a version tag. In March 2026 the official
+Trivy action's version tags were hijacked to run credential-stealing code, and a commit SHA cannot be moved that way. Docker Hub login
+uses plain `docker login` instead of adding another third-party action.
+
+**Branch protection.** `main` requires a pull request and passing checks (`server-tests`, `client-build`, `docker-build (server)`,
+`docker-build (client)`), and blocks force pushes and branch deletion.
+
+---
+
+## Infrastructure as Code
+
+Everything in [`terraform/`](terraform) creates the server from scratch:
+
+- **Security group:** SSH only from my IP; HTTP and HTTPS open to the world; nothing else.
+- **EC2 instance:** Ubuntu 24.04, `t3.micro`, encrypted 20 GB gp3 disk, IMDSv2 required.
+- **First-boot script (`user_data.sh`):** adds swap, installs Docker, writes `docker-compose.yml` and the Caddyfile, generates fresh random
+  secrets **on the server** (so they never pass through Terraform or Git), starts the stack and seeds the demo data.
+- **HTTPS:** the hostname is built from the server's IP using the free `sslip.io` service, and Caddy obtains a Let's Encrypt certificate for it.
+
+The Terraform state file stays on my laptop and is excluded from Git.
+
+---
+
+## Run it locally (Docker Compose)
+
+Requires Docker Desktop.
+
 ```bash
-git clone https://github.com/yourusername/pulsefit.git
+git clone https://github.com/Abusufiyan01/pulsefit.git
 cd pulsefit
+cp .env.example .env
+# Put two long random values into JWT_ACCESS_SECRET and JWT_REFRESH_SECRET, e.g. the output of: openssl rand -hex 32
+docker compose up -d --build
+docker compose exec server node scripts/seed.js
 ```
 
-### 2. Install all dependencies
-```bash
-npm run install:all
-```
-This installs root, server, and client dependencies.
-
-### 3. Configure environment variables
-
-**Server** (`server/.env`):
-```bash
-cp server/.env.example server/.env
-```
-Edit `server/.env` with your values (see [Environment Variables](#-environment-variables) below).
-
-**Client** (`client/.env`):
-```bash
-cp client/.env.example client/.env
-```
-
-### 4. Seed the database
-```bash
-npm run seed
-```
-This creates:
-- 120+ exercises
-- 200+ foods (including Indian foods)
-- 6 prebuilt workout routines
-- Demo user: `demo@pulsefit.com` / `Demo1234!` with 8 weeks of realistic history
-
-### 5. Start the development server
-```bash
-npm run dev
-```
-- **Frontend**: http://localhost:5173
-- **Backend API**: http://localhost:5000/api/v1
+Open <http://localhost:8080> and log in with `demo@pulsefit.com` / `Demo1234!`.
+`docker compose ps` should show `mongo`, `server` and `client` as healthy.
 
 ---
 
-## 🔐 Environment Variables
+## Deploy to AWS
 
-### Server (`server/.env`)
+Requirements: an AWS account, an IAM user with EC2 permissions (not the root user), an EC2 key pair named `pulsefit-key`, and Terraform 1.9 or newer.
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `NODE_ENV` | Yes | `development` or `production` |
-| `PORT` | No | Server port (default: 5000) |
-| `MONGODB_URI` | Yes | MongoDB connection string |
-| `JWT_ACCESS_SECRET` | Yes | Secret for access tokens (min 32 chars) |
-| `JWT_REFRESH_SECRET` | Yes | Secret for refresh tokens (min 32 chars) |
-| `CLIENT_URL` | Yes | Frontend URL for CORS |
-| `GEMINI_API_KEY` | No | Google Gemini API key (AI features) |
+```bash
+cd terraform
+terraform init
+terraform plan  -var "my_ip_cidr=$(curl -s https://checkip.amazonaws.com)/32"
+terraform apply -var "my_ip_cidr=$(curl -s https://checkip.amazonaws.com)/32"
+```
 
-#### Getting a free Gemini API Key:
-1. Go to [Google AI Studio](https://aistudio.google.com/)
-2. Sign in with a Google account
-3. Click "Get API Key" → "Create API Key"
-4. Copy the key into `GEMINI_API_KEY`
+PowerShell: `$myip = (Invoke-RestMethod https://checkip.amazonaws.com).Trim()` and use `"my_ip_cidr=$myip/32"`.
 
-> **Note:** The app works without a Gemini API key — AI features fall back to rule-based generation automatically.
+`terraform apply` prints the `site_url` and an `ssh_command`. The site is ready a few minutes after the apply finishes.
+To remove everything and stop paying for it: `terraform destroy` with the same `-var`.
 
-#### MongoDB Setup Options:
-- **Local**: `mongodb://localhost:27017/pulsefit`
-- **Atlas Free Tier**: 
-  1. Create account at [MongoDB Atlas](https://www.mongodb.com/atlas/database)
-  2. Create a free M0 cluster
-  3. Get connection string → paste into `MONGODB_URI`
+### Deploying a version and rolling back
 
-### Client (`client/.env`)
+On the server, `./deploy.sh` pulls the images and restarts the stack. Pass a commit SHA to deploy or roll back to an exact version:
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `VITE_API_URL` | No | API base URL (default: http://localhost:5000/api/v1) |
+```bash
+./deploy.sh                # latest
+./deploy.sh <commit-sha>   # a specific build, e.g. to roll back
+```
 
 ---
 
-## 📁 Project Structure
+## Security measures
+
+- Containers run as non-root users; the final server image contains no npm.
+- Secrets come from environment variables, never from the repository. The server refuses to run without real JWT secrets in production
+  (the old hard-coded fallback was removed).
+- The database and API are not published; only the reverse proxy faces the internet.
+- Images are scanned on every build and cannot be published if the scan fails.
+- AWS access uses a limited IAM user, with no root access keys; SSH is limited to my IP.
+- `.dockerignore` files keep `.env`, uploads and local data out of the images.
+
+---
+
+## Lessons learned (what broke and how I fixed it)
+
+1. **Tests passed on my laptop but failed in CI.** The tests relied on a local `.env` for the JWT secret, so CI saw mismatched secrets and
+   every authenticated test returned 401. I gave CI explicit throwaway test secrets and removed the hard-coded fallback secret from the code.
+2. **A broken workflow file merged with no checks.** An invalid `ci.yml` cannot run, so there was nothing to block the merge. After that
+   I added a branch ruleset that requires the checks, and learned that the required check names must match the job names exactly.
+3. **Supply-chain risk in the scanner itself.** While adding Trivy I found that its official action had been compromised in March 2026,
+   so I pinned it to a commit SHA and used plain `docker login` for the registry.
+4. **An outdated base image.** The first client scan found 68 findings, almost all from an Alpine 3.21 base that reached end of support on
+   1 November 2026. Moving to a supported base cut it to 6. The remaining 6 are Nginx issues in features this config does not use
+   (TLS, HTTP/2, HTTP/3, mail proxy, resolver), documented in `.trivyignore` with a review date of 6 December 2026.
+5. **A first-boot script that failed silently.** The EC2 server came up with nothing installed. `cloud-init status --long` and
+   `/var/log/cloud-init.log` showed `Exec format error`: a stray blank line before `#!/bin/bash` meant the file was not treated as a script.
+   I fixed the file and added `trimspace()` in Terraform so the mistake cannot recur.
+6. **HTTPS timed out because port 443 was never opened.** My `terraform plan` had the expected number of changes, but the diff showed
+   only an SSH rule moving. The lesson was to read the actual diff, not just the summary line.
+
+---
+
+## Limitations and next steps
+
+- Publishing is automatic, but deploying to the server is one manual command (`./deploy.sh`). Next: automate it using OIDC-based AWS access.
+- Terraform state is local. Next: move it to an S3 backend with locking.
+- Rebuilding the server recreates the database. A real system would keep data on a persistent volume, a managed database, or backups.
+- The `sslip.io` hostname changes with the server's IP. A real domain and an Elastic IP would fix that.
+- There is no monitoring yet. Next: CloudWatch alarms managed by Terraform.
+- Single instance, single environment, no staging.
+
+---
+
+## The application
+
+PulseFit tracks workouts, nutrition, body metrics and goals, and generates AI plans with a rule-based fallback when no Gemini key is set.
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 18, Vite, Tailwind CSS, Zustand, React Query, Recharts, Framer Motion |
+| Backend | Node.js, Express, Mongoose, JWT auth (httpOnly cookies), Helmet, rate limiting, Multer |
+| Database | MongoDB 7 |
+| AI | Google Gemini (optional; falls back to rule-based generation) |
+| Testing | Jest and Supertest, with an in-memory MongoDB for tests |
+
+The full feature list, API reference, seed data and development guide are in [`docs/APP_GUIDE.md`](docs/APP_GUIDE.md).
+The database schema is in [`docs/SCHEMA.md`](docs/SCHEMA.md).
+
+---
+
+## Repository layout
 
 ```
 pulsefit/
-├── package.json              # Root monorepo scripts
-├── README.md
-├── docs/
-│   ├── SCHEMA.md             # Database schema & ER diagram
-│   ├── USER_FLOW.md          # User flow documentation
-│   └── PROJECT_REPORT.md     # Final year project report
-│
-├── client/                   # React + Vite frontend
-│   ├── public/
-│   │   ├── manifest.json     # PWA manifest
-│   │   ├── sw.js             # Service worker
-│   │   └── favicon.svg
-│   ├── src/
-│   │   ├── App.jsx           # Root component with routing
-│   │   ├── main.jsx          # Entry point
-│   │   ├── index.css         # Global styles + Tailwind
-│   │   ├── layouts/          # AppLayout, PublicLayout
-│   │   ├── pages/            # All page components
-│   │   │   ├── LandingPage.jsx
-│   │   │   ├── OnboardingPage.jsx
-│   │   │   ├── NotFoundPage.jsx
-│   │   │   ├── auth/         # Login, Register, Forgot/Reset Password
-│   │   │   └── app/          # Dashboard, Workout, Nutrition, Body, Goals, Progress, Settings, Profile
-│   │   ├── components/       # Reusable components
-│   │   │   ├── ui/           # Design system components
-│   │   │   ├── WorkoutTimer.jsx
-│   │   │   ├── MacroRing.jsx
-│   │   │   ├── ActivityHeatmap.jsx
-│   │   │   ├── ExercisePicker.jsx
-│   │   │   ├── FoodSearchModal.jsx
-│   │   │   ├── CommandPalette.jsx
-│   │   │   ├── OfflineBanner.jsx
-│   │   │   └── AchievementBadge.jsx
-│   │   ├── store/            # Zustand state stores
-│   │   │   ├── authStore.js
-│   │   │   └── themeStore.js
-│   │   ├── services/         # API service layer
-│   │   ├── hooks/            # Custom React hooks
-│   │   ├── utils/            # Utility functions
-│   │   └── lib/
-│   │       └── api.js        # Axios instance
-│   ├── tailwind.config.js
-│   ├── vite.config.js
-│   └── package.json
-│
-└── server/                   # Node.js + Express backend
-    ├── src/
-    │   ├── index.js          # Entry point
-    │   ├── config/           # DB connection, constants
-    │   ├── models/           # Mongoose models
-    │   ├── middleware/        # Auth, error handler, validation, upload
-    │   ├── controllers/      # Route handlers
-    │   ├── routes/           # Express routers
-    │   ├── services/         # Business logic
-    │   └── utils/            # Helpers
-    ├── scripts/
-    │   └── seed.js           # Database seeder
-    ├── tests/                # Jest tests
-    ├── uploads/              # Progress photos (gitignored)
-    ├── .env.example
-    └── package.json
+├── .github/workflows/ci.yml   # CI/CD pipeline
+├── client/                    # React app + Dockerfile + nginx.conf
+├── server/                    # Express API + Dockerfile + Jest tests
+├── terraform/                 # EC2, security group and first-boot script
+├── docs/                      # App guide, schema, screenshots
+├── docker-compose.yml         # Local 3-tier stack
+├── .env.example               # Variables for Docker Compose
+└── .trivyignore               # Documented, time-limited scan exceptions
 ```
-
----
-
-## 🔌 API Endpoints
-
-### Authentication
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| POST | `/api/v1/auth/register` | Register new user | No |
-| POST | `/api/v1/auth/login` | Login | No |
-| POST | `/api/v1/auth/logout` | Logout | Yes |
-| POST | `/api/v1/auth/refresh` | Refresh access token | No |
-| POST | `/api/v1/auth/forgot-password` | Request password reset | No |
-| POST | `/api/v1/auth/reset-password/:token` | Reset password | No |
-| GET | `/api/v1/auth/me` | Get current user | Yes |
-
-### Users
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| GET | `/api/v1/users/profile` | Get profile | Yes |
-| PUT | `/api/v1/users/profile` | Update profile | Yes |
-| POST | `/api/v1/users/change-password` | Change password | Yes |
-| POST | `/api/v1/users/avatar` | Upload avatar | Yes |
-| GET | `/api/v1/users/export` | Export all data | Yes |
-| DELETE | `/api/v1/users/account` | Delete account | Yes |
-
-### Exercises
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| GET | `/api/v1/exercises` | List exercises (paginated) | Yes |
-| GET | `/api/v1/exercises/search` | Search exercises | Yes |
-| GET | `/api/v1/exercises/:id` | Get exercise | Yes |
-| POST | `/api/v1/exercises` | Create custom exercise | Yes |
-| PUT | `/api/v1/exercises/:id` | Update custom exercise | Yes |
-| DELETE | `/api/v1/exercises/:id` | Delete custom exercise | Yes |
-
-### Workouts
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| GET | `/api/v1/workouts` | List workouts (paginated) | Yes |
-| POST | `/api/v1/workouts` | Log workout | Yes |
-| GET | `/api/v1/workouts/stats` | Workout statistics | Yes |
-| GET | `/api/v1/workouts/:id` | Get workout | Yes |
-| PUT | `/api/v1/workouts/:id` | Update workout | Yes |
-| DELETE | `/api/v1/workouts/:id` | Delete workout | Yes |
-
-### Routines
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| GET | `/api/v1/routines` | List routines | Yes |
-| POST | `/api/v1/routines` | Create routine | Yes |
-| GET | `/api/v1/routines/:id` | Get routine | Yes |
-| PUT | `/api/v1/routines/:id` | Update routine | Yes |
-| DELETE | `/api/v1/routines/:id` | Delete routine | Yes |
-| POST | `/api/v1/routines/:id/duplicate` | Duplicate routine | Yes |
-
-### Nutrition
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| GET | `/api/v1/nutrition/foods` | List foods | Yes |
-| GET | `/api/v1/nutrition/foods/search` | Search foods | Yes |
-| POST | `/api/v1/nutrition/foods` | Create custom food | Yes |
-| GET | `/api/v1/nutrition/food-logs` | List food logs | Yes |
-| POST | `/api/v1/nutrition/food-logs` | Log food | Yes |
-| GET | `/api/v1/nutrition/food-logs/date/:date` | Get logs for date | Yes |
-| PUT | `/api/v1/nutrition/food-logs/:id` | Update food log | Yes |
-| DELETE | `/api/v1/nutrition/food-logs/:id` | Delete food log | Yes |
-
-### Water
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| GET | `/api/v1/water` | List water logs | Yes |
-| POST | `/api/v1/water` | Log water | Yes |
-| GET | `/api/v1/water/date/:date` | Get water for date | Yes |
-
-### Body Metrics
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| GET | `/api/v1/body` | List body metrics | Yes |
-| POST | `/api/v1/body` | Log body metrics | Yes |
-| GET | `/api/v1/body/stats` | Body statistics | Yes |
-| GET | `/api/v1/body/:id` | Get single metric | Yes |
-| DELETE | `/api/v1/body/:id` | Delete metric | Yes |
-
-### Goals
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| GET | `/api/v1/goals` | List goals | Yes |
-| POST | `/api/v1/goals` | Create goal | Yes |
-| PUT | `/api/v1/goals/:id` | Update goal | Yes |
-| DELETE | `/api/v1/goals/:id` | Delete goal | Yes |
-
-### Achievements
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| GET | `/api/v1/achievements` | Get user achievements | Yes |
-
-### Progress Photos
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| GET | `/api/v1/progress-photos` | List progress photos | Yes |
-| POST | `/api/v1/progress-photos` | Upload progress photo | Yes |
-| DELETE | `/api/v1/progress-photos/:id` | Delete photo | Yes |
-
-### Personal Records
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| GET | `/api/v1/personal-records` | List all PRs | Yes |
-| GET | `/api/v1/personal-records/:exerciseId` | PRs for exercise | Yes |
-
-### AI
-| Method | Endpoint | Description | Auth |
-|--------|----------|-------------|------|
-| POST | `/api/v1/ai/workout-plan` | Generate workout plan | Yes |
-| POST | `/api/v1/ai/meal-suggestions` | Generate meal suggestions | Yes |
-| GET | `/api/v1/ai/progress-insights` | Get progress insights | Yes |
-| GET | `/api/v1/ai/quote` | Get motivational quote | Yes |
-
----
-
-## 🌱 Seed Data
-
-The seed script (`npm run seed`) populates:
-
-| Data | Count | Details |
-|------|-------|---------|
-| Exercises | 120+ | All major muscle groups |
-| Foods | 200+ | Including 50+ Indian foods |
-| Routines | 6 | PPL, Full Body, Upper/Lower, Beginner, HIIT, Fat Loss |
-| Demo User | 1 | email: demo@pulsefit.com, password: Demo1234! |
-| Workout History | 56 workouts | 8 weeks, 4-5/week with progression |
-| Food Logs | 56 days | Realistic calories ~TDEE |
-| Body Metrics | 8 entries | Weekly weigh-ins |
-| Achievements | 5 | Pre-unlocked for demo user |
-
----
-
-## 📜 Scripts
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start both frontend and backend |
-| `npm run dev:client` | Start frontend only |
-| `npm run dev:server` | Start backend only |
-| `npm run build` | Build frontend for production |
-| `npm run seed` | Seed the database |
-| `npm run test` | Run backend tests |
-| `npm run install:all` | Install all dependencies |
-
----
-
-## 🧪 Testing
-
-PulseFit includes comprehensive unit and integration tests across 5 test suites:
-
-```bash
-# Run backend tests
-cd server && npm test
-
-# Run frontend linting and type checks
-cd client && npm run lint
-```
-
-Tests cover:
-- **Auth API (`tests/auth.test.js`)**: Registration, login, logout, token refresh, `/auth/me` session recovery, password validation, protected routes.
-- **Workout API (`tests/workout.test.js`)**: Empty exercise validation, total volume calculation, personal record auto-detection, workout history pagination.
-- **Streak Logic (`tests/streak.test.js`)**: Multi-day consistency, rest day streak protection, timezone boundaries, midnight rollover handling.
-- **Photos & Avatar API (`tests/photos.test.js`)**: Multipart file uploads, mime type enforcement, disk unlinking on photo deletion, avatar updates.
-- **Nutrition, AI & Export API (`tests/nutrition_ai_export.test.js`)**: Meal logging, macro summation, daily water tracking, rule-based AI fallbacks, full JSON data export.
-
----
-
-## 🔧 Troubleshooting & Bugfix Notes
-
-### 1. Photo Uploads & Static Serving
-- **Issue:** Uploaded transformation photos or avatars returned 404 or failed to display in the frontend.
-- **Root Cause:** Vite only proxied `/api` requests by default, meaning requests to `/uploads/...` fell back to Vite's SPA index.html. In addition, multer paths previously resolved to the project root instead of `server/uploads`.
-- **Solution:** 
-  1. Configured both `server.proxy` and `preview.proxy` in `client/vite.config.js` to route `/uploads` directly to `http://127.0.0.1:5000`.
-  2. Set `uploadDir` in `server/src/middleware/upload.js` to `path.resolve(__dirname, '../../uploads')` with automatic directory creation.
-  3. Added `getImageUrl` utility in `client/src/utils/imageUrl.js` supporting instant blob previews, external URLs, and relative upload paths with fallback images.
-  4. Configured Helmet with `crossOriginResourcePolicy: { policy: 'cross-origin' }`.
-
-### 2. Auth Session Bouncing on Page Reload
-- **Issue:** Directly refreshing or entering protected URLs like `/app/body` redirected users back to `/login`.
-- **Root Cause:** `authController.getMe` returned `{ success: true, data: userSafe }`, but `authStore.fetchMe` looked for `data.data?.user`, causing the stored user state to be cleared on refresh.
-- **Solution:** Aligned `authStore.js` to support both payload shapes (`data.data?.user || (data.data?.email ? data.data : data.user)`), ensuring robust session persistence.
-
-### 3. Embedded Database Socket Permissions on Windows
-- **Issue:** When running automated test suites or local development on Windows environments without a pre-installed `mongod.exe` service, tests failed with `connect EACCES`.
-- **Solution:** `server/src/config/db.js` includes an automatic fallback to `mongodb-memory-server` saving to `server/data/db`. When running in sandboxed shells, run tests outside the socket isolation sandbox (`BypassSandbox: true` or standard terminal permissions).
-
----
-
-## 📱 PWA Support
-
-PulseFit is a Progressive Web App:
-- **Installable** on Android, iOS, and desktop
-- **Offline support** — cached assets, offline banner when disconnected
-- **Push notifications** — workout reminders via browser Notification API
-- **App-like experience** — full-screen, no browser chrome
-
----
-
-## 🎓 Final Year Project Note
-
-This application was built as a final year project demonstrating:
-- Full-stack web development with modern technologies
-- RESTful API design and security best practices
-- Database modeling and optimization
-- AI/ML integration with graceful fallbacks
-- Production-quality UI/UX design
-- PWA and performance optimization
-- Testing and code quality
-
-See `docs/PROJECT_REPORT.md` for the full academic report.
-
----
-
-## 📄 License
-
-MIT License — see [LICENSE](LICENSE) for details.
-
----
-
-<div align="center">
-Built with ❤️ and 🔥 — PulseFit | Train Smarter. Live Better.
-</div>
-
